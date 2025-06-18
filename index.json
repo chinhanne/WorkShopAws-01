@@ -1,0 +1,120 @@
+[
+{
+	"uri": "https://chinhanne.github.io/WorkshopAws-01/2-prerequiste/2.2-createcloudwatch-alarm/2.2.2-createlambda/",
+	"title": "Create a Lambda Function to Handle Notifications",
+	"tags": [],
+	"description": "",
+	"content": " Open IAM Console Go to Roles \u0026gt; Create role Trusted entity: AWS service - Lambda Click Next to continue Permissions: AWSLambdaBasicExecutionRole Click Next to continue Role name: LambdaOpExRole Description: Allows lambda function to call AWS services on your behalf Review configuration settings Click Create role Search for \u0026ldquo;Lambda\u0026rdquo; in the search bar Select Lambda Go to Functions \u0026gt; Create function Function name: OperationalExcellence-AlertHandler Runtime: Python 3.13 Execution role: Use existing role (created in step 1) Click Create function Successfully created Function Code: import json import boto3 from datetime import datetime def lambda_handler(event, context): print(f\u0026#34;Received event: {json.dumps(event)}\u0026#34;) sns = boto3.client(\u0026#39;sns\u0026#39;) ssm = boto3.client(\u0026#39;ssm\u0026#39;) try: # Parse SNS message message = event[\u0026#39;Records\u0026#39;][0][\u0026#39;Sns\u0026#39;][\u0026#39;Message\u0026#39;] subject = event[\u0026#39;Records\u0026#39;][0][\u0026#39;Sns\u0026#39;].get(\u0026#39;Subject\u0026#39;, \u0026#39;AWS Alert\u0026#39;) # Create formatted notification timestamp = datetime.utcnow().strftime(\u0026#39;%Y-%m-%d %H:%M:%S UTC\u0026#39;) formatted_message = f\u0026#34;\u0026#34;\u0026#34; ============================== AWS Operational Excellence Alert ============================== Alert: {subject} Time: {timestamp} Details: {message} ============================== For more information, check AWS Console. ============================== \u0026#34;\u0026#34;\u0026#34; # Create OpsCenter item for tracking ops_response = ssm.create_ops_item( Title=f\u0026#34;Operational Alert: {subject}\u0026#34;, Description=f\u0026#34;Alert received at {timestamp}\\n\\nDetails:\\n{message}\u0026#34;, Source=\u0026#39;lambda.operational-excellence\u0026#39;, Category=\u0026#39;Performance\u0026#39;, Severity=\u0026#39;2\u0026#39; ) # Send enhanced notification enhanced_message = formatted_message + f\u0026#34;\\nOpsItem ID: {ops_response[\u0026#39;OpsItemId\u0026#39;]}\u0026#34; sns.publish( TopicArn=event[\u0026#39;Records\u0026#39;][0][\u0026#39;Sns\u0026#39;][\u0026#39;TopicArn\u0026#39;], Message=enhanced_message, Subject=f\u0026#34;[OpEx] {subject}\u0026#34; ) return { \u0026#39;statusCode\u0026#39;: 200, \u0026#39;body\u0026#39;: json.dumps(\u0026#39;Alert processed successfully\u0026#39;) } except Exception as e: print(f\u0026#34;Error: {str(e)}\u0026#34;) return { \u0026#39;statusCode\u0026#39;: 500, \u0026#39;body\u0026#39;: json.dumps(f\u0026#39;Error: {str(e)}\u0026#39;) } Deploy the function Connect Lambda to SNS Search for Simple Notification Service in the search bar Select the Topic you created In the SNS Topic Click Create subscription Protocol: AWS Lambda Endpoint: Select the Lambda function you just created Click Create subscription Create subscription Grant SNS permission to invoke the Lambda function\nGo to your Lambda function Select the Configuration tab \u0026gt; Permissions A Resource-based policy will be automatically added to allow SNS to invoke the Lambda function "
+},
+{
+	"uri": "https://chinhanne.github.io/WorkshopAws-01/2-prerequiste/2.2-createcloudwatch-alarm/2.2.1-createcloudwatch/",
+	"title": "Create CloudWatch Alarm",
+	"tags": [],
+	"description": "",
+	"content": " Go to the CloudWatch management console\nClick All alarms to create a new alarm\nClick Create alarm Click Select metric Choose the instance you just created Select the metric CPUUtilization Click Select metric Configure Conditions: Threshold type: Static Condition: Greater than threshold Threshold value: 80 Period: 1 minute Evaluation periods: 2 Click Next to continue Configure Notification: Choose In alarm Select Select an existing SNS topic Under Send a notification to, choose the previously created SNS topic (if you don’t have one, create a new topic) Create an SNS Topic: In the search bar, type Simple Notification Service Go to Topics \u0026gt; Create topic Type: Standard Name: OperationalExcellence-Alerts Display name: OpEx Alerts Click Create topic After successfully creating the topic:\nGo to the newly created topic Click Create subscription Protocol: Email Endpoint: Enter your email address Click Create subscription Confirm Subscription:\nCheck your email and click the confirmation link Verify that the subscription status is \u0026ldquo;Confirmed\u0026rdquo; Continue configuring Notification: Under Send a notification to, select the created SNS topic: OperationalExcellence-Alerts Click Next to continue In Step 3: Name the Alarm Example: HighCPUUtilization-Alert Click Next to continue Review your configuration before creating the alarm "
+},
+{
+	"uri": "https://chinhanne.github.io/WorkshopAws-01/2-prerequiste/2.1-createec2/2.1.1-createvpc/",
+	"title": "Create VPC",
+	"tags": [],
+	"description": "",
+	"content": "Create VPC Lab VPC Go to the VPC Management Console Click Your VPCs. Click Create VPC. On the Create VPC page: Under Resources to create, select: VPC and more. In Name tag, enter: Vpc-workShop. In IPv4 CIDR, enter: 10.0.0.0/16. Under VPC endpoints, choose: None. Click Create VPC. After creating the VPC, go to Subnets: Select Vpc-workShop-subnet-public1-ap-southeast-1a Click Actions Click Edit subnet settings In the Edit subnet settings screen: Check the box Enable auto-assign public IPv4 address Click Save to apply the changes "
+},
+{
+	"uri": "https://chinhanne.github.io/WorkshopAws-01/4-advancecloudformation/4.1-createcloudformation/",
+	"title": "Environment Setup and Deployment with CloudFormation",
+	"tags": [],
+	"description": "",
+	"content": " Go to the AWS CloudFormation Management Console Click Create stack In Step 1: Download the CloudFormation template file Select Choose a template \u0026gt; Upload a template file Upload the template you just downloaded Click Next Stack name: CloudFormationWorkShop Choose the Key Pair created in step \u0026ldquo;2.1.4\u0026rdquo; Enter the email address where you want to receive notifications Click Next Check I acknowledge that AWS CloudFormation might create IAM resources Click Next Click Submit Wait approximately 5 minutes for CloudFormation to change status to CREATE_COMPLETE\nClick on the ALBEndpoint link to open the ALB URL. A web application should open via the Load Balancer. Access Load Balancer # Get ALB DNS name from stack outputs aws cloudformation describe-stacks \\ --stack-name operational-excellence-lab \\ --query \u0026#39;Stacks[0].Outputs[?OutputKey==`ALBEndpoint`].OutputValue\u0026#39; \\ --output text Generate Load # Use hey tool for load testing hey -n 10000 -c 50 http://your-alb-dns-name/ # Or Apache Bench ab -n 10000 -c 50 http://your-alb-dns-name/ Once testing is complete, you can check Log groups, activity history, resources, etc. "
+},
+{
+	"uri": "https://chinhanne.github.io/WorkshopAws-01/1-introduce/",
+	"title": "Introduction",
+	"tags": [],
+	"description": "",
+	"content": "Operational Excellence is one of the five pillars of the AWS Well-Architected Framework, helping organizations build and operate cloud systems in an efficient, flexible, and continuously improving manner. This pillar focuses on daily operations, quick incident response, automating processes, and learning from real-world data to enhance system performance.\nOperational Excellence ensures that operational processes are not only reliable but also adaptable to change, while minimizing human error through automation, monitoring, and comprehensive logging.\nBy applying Operational Excellence, you will gain the following benefits:\nDefine operational processes as code (Operations as Code) to enable better control and reusability.\nAutomate deployment, monitoring, and response to minimize risks during system changes.\nContinuously monitor and detect anomalies early using tools like Amazon CloudWatch.\nRecord all logs and change history to support easy troubleshooting and investigation.\nAccelerate issue resolution and reduce downtime.\nSupport continuous improvement by analyzing operational data and user feedback.\nEnhance security and compliance through proper access control and permissions.\nWith these benefits, Operational Excellence serves as a critical foundation that enables businesses to operate AWS systems in a professional, secure, and efficient manner — from small to large scale.\n"
+},
+{
+	"uri": "https://chinhanne.github.io/WorkshopAws-01/",
+	"title": "Operational Excellence",
+	"tags": [],
+	"description": "",
+	"content": "AWS Well-Architected Framework: Operational Excellence Lab Guide Introduction Welcome to the hands-on lab for AWS Well-Architected Framework: Operational Excellence. In this lab, you will learn how to build an automated monitoring and alerting system to ensure your application operates efficiently and reliably.\nLab Objectives Understand and apply the principles of Operational Excellence Build an automated monitoring system using CloudWatch Implement alerting and automated response mechanisms Optimize operational processes using Infrastructure as Code Prerequisites Basic knowledge of the AWS Console Understanding of EC2, CloudWatch, SNS, and Lambda Experience with CloudFormation (for the advanced section) Lab Content Introduction Prerequisites System Testing Scaling with CloudFormation Template Cleaning Up Resources "
+},
+{
+	"uri": "https://chinhanne.github.io/WorkshopAws-01/2-prerequiste/2.1-createec2/",
+	"title": "Prepare VPC and EC2",
+	"tags": [],
+	"description": "",
+	"content": "In this step, we will create a VPC with both public and private subnets. Then, we will launch an EC2 instance named OperationalExcellence-Monitor-Instance in the public subnet.\nThe overall architecture after completing this step will look like the following:\nTo learn how to create EC2 instances and a VPC with public/private subnets, you can refer to the following labs:\nIntroduction to Amazon EC2 Working with Amazon VPC Content Create VPC Create Security Group Create IAM Role Create EC2 Instance "
+},
+{
+	"uri": "https://chinhanne.github.io/WorkshopAws-01/2-prerequiste/2.1-createec2/2.1.2-createsecuritygroup/",
+	"title": "Create Security Groups",
+	"tags": [],
+	"description": "",
+	"content": "Create Security Groups Click Security groups. Click Create security group. In the Create security group page: Security group name: Enter a custom name (e.g., WorkShopSecurity) Description: Enter a custom description (e.g., Security group for Work Shop) VPC: Select the VPC you just created (e.g., \u0026ldquo;Vpc-workShop-vpc\u0026rdquo;) Define Inbound rules: Click Add rule\nConfigure SSH access:\nType: Select SSH Source: Select My IP (automatically uses your current public IPv4 address) or Anywhere (0.0.0.0/0) Click Add rule again\nConfigure ICMP access:\nType: Select All ICMP - IPv4 Source: Select Anywhere (0.0.0.0/0) Click Add rule again\nConfigure HTTP access:\nType: Select HTTP Source: Select Anywhere (0.0.0.0/0) Define Outbound rules: By default, all outbound traffic is allowed Click Create security group Successfully created "
+},
+{
+	"uri": "https://chinhanne.github.io/WorkshopAws-01/2-prerequiste/",
+	"title": "Preparation Steps",
+	"tags": [],
+	"description": "",
+	"content": "To deploy the system as described in the lab, learners need to prepare the following essential components:\nPreparation Requirements\nCreate a custom VPC and basic networking components (Subnet, Route Table, Internet Gateway)\nLaunch an EC2 instance using Amazon Linux 2\nCreate and assign a Security Group that allows SSH (port 22) and HTTP (port 80) access\nInstall a Web Server and CloudWatch Agent via User Data\nCreate an IAM Role and attach the necessary permissions to allow EC2 to send metrics/logs to CloudWatch\nTo learn how to create EC2 instances and a VPC with public/private subnets, you can refer to the following labs:\nIntroduction to Amazon EC2 Working with Amazon VPC Content Preparing VPC and EC2 Instance Setting up alert and event response using CloudWatch Alarm, SNS, and Lambda "
+},
+{
+	"uri": "https://chinhanne.github.io/WorkshopAws-01/2-prerequiste/2.2-createcloudwatch-alarm/",
+	"title": "Setting Up an Alerting and Event Handling System with CloudWatch Alarm, SNS, and Lambda",
+	"tags": [],
+	"description": "",
+	"content": "What is CloudWatch? Amazon CloudWatch is a monitoring service for AWS resources and applications. It allows you to:\nCollect and display system metrics (CPU, memory, disk I/O…). Store and analyze logs. Set alarms when metrics exceed predefined thresholds. Trigger automatic actions via SNS, Lambda, or other AWS services. Configuration Objectives CloudWatch Alarm Monitor the CPUUtilization metric of an EC2 instance. Trigger an alarm when CPU exceeds 80% for 2 consecutive minutes. Enable early detection of performance issues for timely intervention. SNS Topic + Email Subscription Create a notification channel using SNS Topic. Send real-time alerts via email when the alarm is triggered. Ensure administrators are promptly informed. Lambda Function to Handle Alerts Automatically receive alerts from SNS. Create an OpsItem in Systems Manager to log the event. Send more detailed and human-readable alerts to recipients. Automate incident response following Operational Excellence standards. Prerequisite Knowledge Component Description Metric System metrics collected by CloudWatch (CPU, Memory, Network…) Alarm A configured alert to monitor metrics and send notifications SNS (Simple Notification Service) Sends notifications to email, SMS, Lambda, etc. Subscription Destination to receive SNS alerts (email, SQS, HTTP endpoint…) Lambda Serverless function to handle SNS events for fast and flexible responses SSM OpsItem Incident record in Systems Manager for tracking and post-analysis Contents Create a CloudWatch Alarm Create a Lambda Function to Handle Alerts "
+},
+{
+	"uri": "https://chinhanne.github.io/WorkshopAws-01/2-prerequiste/2.1-createec2/2.1.3-createiamrole/",
+	"title": "Create IAM Role",
+	"tags": [],
+	"description": "",
+	"content": "Create IAM Role Go to the AWS Management Console: Search for \u0026ldquo;IAM\u0026rdquo; in the search bar Click on \u0026ldquo;Roles\u0026rdquo; to open the dashboard Click Create role to create a new role Select AWS Service In the \u0026ldquo;Use case\u0026rdquo; section, choose EC2 Click Next to continue Search for CloudWatchAgentServerPolicy and check the box to attach this policy Click Next to proceed Name the role EC2CloudWatchAgentRole Review the configuration Click Create role to finalize the creation Go back to the \u0026ldquo;Dashboard\u0026rdquo; and click Roles Search for EC2CloudWatchAgentRole (If found, the role has been successfully created) "
+},
+{
+	"uri": "https://chinhanne.github.io/WorkshopAws-01/3-testsystem/",
+	"title": "System Testing",
+	"tags": [],
+	"description": "",
+	"content": " SSH into the EC2 instance ssh -i your-key.pem ec2-user@your-instance-ip Run a stress test # Generate 100% CPU load for 5 minutes sudo stress --cpu 2 --timeout 300s # Or use the yes command yes \u0026gt; /dev/null \u0026amp; yes \u0026gt; /dev/null \u0026amp; CloudWatch Console Observe the CPU metrics spike Alarm transitions to the \u0026ldquo;In Alarm\u0026rdquo; state Check Email Receive the original alert email from CloudWatch Receive the processed alert email sent by the Lambda function Clean up test # Stop stress processes sudo pkill stress # Or kill yes processes sudo pkill yes "
+},
+{
+	"uri": "https://chinhanne.github.io/WorkshopAws-01/2-prerequiste/2.1-createec2/2.1.4-createec2/",
+	"title": "Create an EC2 Instance",
+	"tags": [],
+	"description": "",
+	"content": " Go to the EC2 Management Console Click Instances Click Launch instances On the Step 1: Choose an Amazon Machine Image (AMI) page: Name your EC2 Instance: OperationalExcellence-Monitor-Instance Click Select next to the Amazon Linux 2023 AMI On the Step 2: Choose an Instance Type page: Select instance type t2.micro Under Key pair, choose an existing key pair If you don’t have one, click Create new key pair Under Network settings, click Edit to configure: Select Select existing security group For VPC, choose the existing VPC: Vpc-workShop-vpc Then select the subnet: subnet-public1-ap-southeast-1a Choose the Security Group: WorkShopSecurity In the Advanced details section: Click to select the role EC2CloudWatchAgentRole for the IAM instance profile Under User data, paste the following script: #!/bin/bash yum update -y yum install -y amazon-cloudwatch-agent stress httpd systemctl start httpd systemctl enable httpd echo \u0026#34;\u0026lt;h1\u0026gt;Operational Excellence Demo Server\u0026lt;/h1\u0026gt;\u0026#34; \u0026gt; /var/www/html/index.html Click Launch instance to create the instance\nPurpose: Install a web server, monitoring agent, and create a demo web page accessible via HTTP.\nPlease wait a few minutes until the EC2 instance is fully created before proceeding to the next step.\nSuccessfully created Click on the newly created instance to view its details Copy the Public IPv4 address Click Connect to test the connection Open the terminal Make sure you are in the directory where the key pair file is stored.\n#!/bin/bash chmod 400 key-pair.pem Kết nối: #!/bin/bash ssh -i \u0026#34;key-pair.pem\u0026#34; ec2-user@ec2-3-0-102-240.ap-southeast-1.compute.amazonaws.com Remember to replace \u0026ldquo;key-pair.pem\u0026rdquo; with the correct path to the .pem file you downloaded when creating the key pair.\n"
+},
+{
+	"uri": "https://chinhanne.github.io/WorkshopAws-01/4-advancecloudformation/",
+	"title": "Scaling with CloudFormation Template",
+	"tags": [],
+	"description": "",
+	"content": "Part 2: Scaling with CloudFormation Template After gaining a clear understanding of how to manually configure components like EC2, CloudWatch Alarm, SNS, and Lambda, this section will help you elevate your system to a more professional level using Infrastructure as Code (IaC).\nInstead of going through each manual step, we use AWS CloudFormation to automatically deploy the entire infrastructure with just a single click or command.\nBenefits: Automates the entire configuration and deployment process.\nEnsures consistency and reduces the risk of human error.\nMakes it easy to control and version your infrastructure like code.\nQuickly replicate the system across multiple environments (dev, test, prod\u0026hellip;).\nThe provided template will fully configure:\nNetworking and security infrastructure.\nEC2 Auto Scaling + Load Balancer.\nMonitoring system via CloudWatch + SNS.\nLogging, monitoring, and automatic event handling using Lambda \u0026amp; EventBridge.\nOperational management with AWS Systems Manager and OpsCenter.\nContents: Environment Setup and Deployment with CloudFormation "
+},
+{
+	"uri": "https://chinhanne.github.io/WorkshopAws-01/5-cleanup/",
+	"title": "Clean Up Resources",
+	"tags": [],
+	"description": "",
+	"content": "We will follow the steps below to delete the resources created during this hands-on lab.\nDelete EC2 Instance Go to the EC2 management console\nClick Instances Select OperationalExcellence-Monitor-Instance Click Instance state Click Terminate instance, then click Terminate to confirm\nIf you created a custom Key Pair, you may go to “Key Pairs” (on the left menu) and delete it if no longer needed.\nGo to the IAM management console\nClick Roles In the search box, enter LambdaOpExRole and EC2CloudWatchAgentRole Select LambdaOpExRole and EC2CloudWatchAgentRole Click Delete, then type the role names (LambdaOpExRole and EC2CloudWatchAgentRole) and click Delete to confirm Delete VPC Go to the VPC management console\nClick Your VPCs Select the VPC created for this lab: Vpc-workShop Click Actions Click Delete VPC In the confirmation field, type delete to confirm, then click Delete to remove the Lab VPC and all associated resources\nDelete Security Group Go to the VPC management console On the left menu, select Security Groups Search for the security group WorkShopSecurity If it’s no longer attached to any instance → click Actions \u0026gt; Delete security group Delete CloudWatch Alarm Go to the CloudWatch management console In the CloudWatch Console → On the left menu, select Alarms \u0026gt; All alarms Find the alarm HighCPUUtilization-Alert Select the alarm → Actions \u0026gt; Delete Delete SNS Topic and Subscriptions Go to the Simple Notification Service (SNS) console On the left menu, select Topics, search for OperationalExcellence-Alerts Select the topic → click Delete If it is not automatically removed, you can also: Go to Subscriptions → Select related subscriptions → Delete Delete Lambda Function Go to the Lambda management console Search for the function OperationalExcellence-AlertHandler Select it → click Actions \u0026gt; Delete function Delete CloudFormation Stack Go to the CloudFormation management console Select the stack CloudFormationWorkShop Click Delete Confirm the deletion when prompted The stack status will show DELETE_IN_PROGRESS, and once completed, it will change to DELETE_COMPLETE\n"
+},
+{
+	"uri": "https://chinhanne.github.io/WorkshopAws-01/categories/",
+	"title": "Categories",
+	"tags": [],
+	"description": "",
+	"content": ""
+},
+{
+	"uri": "https://chinhanne.github.io/WorkshopAws-01/tags/",
+	"title": "Tags",
+	"tags": [],
+	"description": "",
+	"content": ""
+}]
