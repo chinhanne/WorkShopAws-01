@@ -1,0 +1,120 @@
+[
+{
+	"uri": "//localhost:1313/vi/4-advancecloudformation/4.1-createcloudformation/",
+	"title": "Chuẩn bị môi trường và triển khai với CloudFormation",
+	"tags": [],
+	"description": "",
+	"content": " Truy cập giao diện quản trị dịch vụ Cloudformation Chọn Create stack Trong Step 1: Tải về file CloudFormation template Chọn Choose an existing template \u0026gt; Upload a template file Chọn file template mẫu vừa tải Chọn Next Stack name: CloudFormationWorkShop Chọn Key-pair đã tạo tại bước \u0026ldquo;2.1.4\u0026rdquo; Địa chỉ email mà bạn muốn nhận thông báo Chọn Next Chọn I acknowledge that AWS CloudFormation might create IAM resources Chọn Next Chọn Submit Đợi khoảng 5 phút cho CloudFormation chuyển sang trạng thái CREATE_COMPLETE\nChọn vào link ALBEndpoint để mở URL ALB.\nTrang web mở ra là ứng dụng web đang chạy qua Load Balancer.\nAccess Load Balancer # Get ALB DNS name from stack outputs aws cloudformation describe-stacks \\ --stack-name operational-excellence-lab \\ --query \u0026#39;Stacks[0].Outputs[?OutputKey==`ALBEndpoint`].OutputValue\u0026#39; \\ --output text Generate Load # Use hey tool for load testing hey -n 10000 -c 50 http://your-alb-dns-name/ # Or Apache Bench ab -n 10000 -c 50 http://your-alb-dns-name/ Khi kiểm tra xong bạn có thể vào Logs group, activity history, resources, \u0026hellip; để xem. "
+},
+{
+	"uri": "//localhost:1313/vi/2-prerequiste/2.1-createec2/",
+	"title": "Chuẩn bị VPC và EC2 Instance",
+	"tags": [],
+	"description": "",
+	"content": "Trong bước này, chúng ta sẽ cần tạo một VPC có 2 subnet public / private. Sau đó tạo 1 EC2 OperationalExcellence-Monitor-Instance nằm trong public subnet. Tổng quan kiến trúc sau khi các bạn hoàn tất bước này sẽ như sau:\nĐể tìm hiểu cách tạo các EC2 instance và VPC với public/private subnet các bạn có thể tham khảo bài lab :\nGiới thiệu về Amazon EC2 Làm việc với Amazon VPC Nội dung Tạo VPC Tạo Security groups Tạo IAM role Tạo EC2 Instance "
+},
+{
+	"uri": "//localhost:1313/vi/1-introduce/",
+	"title": "Giới thiệu",
+	"tags": [],
+	"description": "",
+	"content": "Operational Excellence là một trong năm trụ cột của AWS Well-Architected Framework, giúp doanh nghiệp xây dựng và vận hành hệ thống trên đám mây một cách hiệu quả, linh hoạt và có khả năng cải tiến liên tục. Trụ cột này tập trung vào việc vận hành hằng ngày, phản hồi nhanh với sự cố, tự động hóa các quy trình, và học hỏi từ dữ liệu thực tế để cải thiện hiệu suất hệ thống. Operational Excellence giúp đảm bảo rằng các quy trình vận hành không chỉ đáng tin cậy mà còn có khả năng thích ứng với thay đổi, đồng thời hạn chế tối đa lỗi con người thông qua tự động hóa, giám sát và ghi log đầy đủ.\nVới việc áp dụng Operational Excellence, bạn sẽ có được những lợi ích sau:\nThiết lập quy trình vận hành dưới dạng mã (Operations as Code) để kiểm soát và tái sử dụng dễ dàng.\nTự động hóa việc triển khai, giám sát và phản hồi, giảm thiểu rủi ro khi thay đổi hệ thống.\nGiám sát liên tục, phát hiện bất thường sớm bằng các công cụ như Amazon CloudWatch.\nGhi lại toàn bộ log và lịch sử thay đổi, hỗ trợ truy vết và điều tra sự cố dễ dàng.\nTăng tốc độ khắc phục sự cố và giảm thời gian downtime.\nHỗ trợ cải tiến liên tục bằng cách phân tích dữ liệu vận hành và phản hồi từ người dùng.\nTăng cường bảo mật, tuân thủ chính sách thông qua kiểm soát truy cập và phân quyền hợp lý.\nVới những lợi ích trên, Operational Excellence là nền tảng quan trọng giúp doanh nghiệp vận hành hệ thống AWS một cách chuyên nghiệp, an toàn, và hiệu quả — từ quy mô nhỏ đến lớn.\n"
+},
+{
+	"uri": "//localhost:1313/vi/",
+	"title": "Operational Excellence",
+	"tags": [],
+	"description": "",
+	"content": "AWS Well-Architected Framework: Operational Excellence Lab Guide Giới thiệu Chào mừng bạn đến với lab thực hành về AWS Well-Architected Framework: Operational Excellence. Trong lab này, chúng ta sẽ học cách xây dựng một hệ thống giám sát và cảnh báo tự động để đảm bảo vận hành ứng dụng một cách hiệu quả và đáng tin cậy.\nMục tiêu Lab Hiểu và áp dụng các nguyên tắc Operational Excellence Xây dựng hệ thống giám sát tự động với CloudWatch Triển khai cơ chế cảnh báo và phản ứng tự động Tối ưu hóa quy trình vận hành với Infrastructure as Code Kiến thức cần có Kiến thức cơ bản về AWS Console Hiểu biết về EC2, CloudWatch, SNS, Lambda Kinh nghiệm với CloudFormation (cho phần nâng cao) Nội dung Giới thiệu Các bước chuẩn bị Kiểm tra hệ thống Mở rộng với CloudFormation Template Dọn dẹp tài nguyên "
+},
+{
+	"uri": "//localhost:1313/vi/2-prerequiste/2.2-createcloudwatch-alarm/2.2.1-createcloudwatch/",
+	"title": "Tạo Cloudwatch Alarm ",
+	"tags": [],
+	"description": "",
+	"content": " Truy cập giao diện quản trị dịch vụ Cloudwatch Chọn All alarm để tạo một alarm\nChọn Create alarm Chọn Select metric Chọn instance vừa tạo Chọn metric CPUUtilization Click Select metric Cấu hình Conditions: Threshold type: Static Condition: Greater than threshold Threshold value: 80 Period: 1 minute Evaluation periods: 2 Click Next để tiếp tục Cấu hình Notification Chọn In alarm Chọn Select an existing SNS topic Tại Send a notification to chọn SNS đã tạo (nếu chưa có thì tạo mới SNS) Tạo SNS Topic Tìm trên thanh tìm kiếm từ khóa Simple Notification Service Chọn Topics \u0026gt; Create topic Type: Standard Name: OperationalExcellence-Alerts Display name: OpEx Alerts Chọn Create topic Tạo thành công\nTiếp tục Trong topic vừa tạo\nChọn Create subscription Protocol: Email Endpoint: Nhập email address của bạn Chọn Create subscription Confirm Subscription\nKiểm tra email và chọn vào link xác nhận Verify subscription status: \u0026ldquo;Confirmed\u0026rdquo; Tiếp tục cấu hình Notification Tại Send a notification to chọn SNS đã tạo OperationalExcellence-Alerts Chọn Next để tiếp tục Trong Step 3: Đặt tên cho Alarm Ví dụ: HighCPUUtilization-Alert Chọn Next để tiếp tục Xem chi tiết cấu hình trước khi tạo mới alarm "
+},
+{
+	"uri": "//localhost:1313/vi/2-prerequiste/2.2-createcloudwatch-alarm/2.2.2-createlambda/",
+	"title": "Tạo Lambda Function xử lý thông báo ",
+	"tags": [],
+	"description": "",
+	"content": " Mở IAM Console Vào Roles \u0026gt; Create role Trusted entity: AWS service - Lambda Next để tiếp tục Permissions: AWSLambdaBasicExecutionRole Next để tiếp tục Role name: LambdaOpExRole Description: Allows lambda function to call AWS services on your behaft Xem lại các thông tin cấu hình Create role để tạo Tìm từ khóa Lambda trên thanh tìm kiếm Chọn Lambda Chọn Functions \u0026gt; Create function Function name: OperationalExcellence-AlertHandler Runtime: Python 3.13 Execution role: Use existing role (từ bước 1) Create function Tạo thành công Function Code: import json import boto3 from datetime import datetime def lambda_handler(event, context): print(f\u0026#34;Received event: {json.dumps(event)}\u0026#34;) sns = boto3.client(\u0026#39;sns\u0026#39;) ssm = boto3.client(\u0026#39;ssm\u0026#39;) try: # Parse SNS message message = event[\u0026#39;Records\u0026#39;][0][\u0026#39;Sns\u0026#39;][\u0026#39;Message\u0026#39;] subject = event[\u0026#39;Records\u0026#39;][0][\u0026#39;Sns\u0026#39;].get(\u0026#39;Subject\u0026#39;, \u0026#39;AWS Alert\u0026#39;) # Create formatted notification timestamp = datetime.utcnow().strftime(\u0026#39;%Y-%m-%d %H:%M:%S UTC\u0026#39;) formatted_message = f\u0026#34;\u0026#34;\u0026#34; ============================== AWS Operational Excellence Alert ============================== Alert: {subject} Time: {timestamp} Details: {message} ============================== For more information, check AWS Console. ============================== \u0026#34;\u0026#34;\u0026#34; # Create OpsCenter item for tracking ops_response = ssm.create_ops_item( Title=f\u0026#34;Operational Alert: {subject}\u0026#34;, Description=f\u0026#34;Alert received at {timestamp}\\n\\nDetails:\\n{message}\u0026#34;, Source=\u0026#39;lambda.operational-excellence\u0026#39;, Category=\u0026#39;Performance\u0026#39;, Severity=\u0026#39;2\u0026#39; ) # Send enhanced notification enhanced_message = formatted_message + f\u0026#34;\\nOpsItem ID: {ops_response[\u0026#39;OpsItemId\u0026#39;]}\u0026#34; sns.publish( TopicArn=event[\u0026#39;Records\u0026#39;][0][\u0026#39;Sns\u0026#39;][\u0026#39;TopicArn\u0026#39;], Message=enhanced_message, Subject=f\u0026#34;[OpEx] {subject}\u0026#34; ) return { \u0026#39;statusCode\u0026#39;: 200, \u0026#39;body\u0026#39;: json.dumps(\u0026#39;Alert processed successfully\u0026#39;) } except Exception as e: print(f\u0026#34;Error: {str(e)}\u0026#34;) return { \u0026#39;statusCode\u0026#39;: 500, \u0026#39;body\u0026#39;: json.dumps(f\u0026#39;Error: {str(e)}\u0026#39;) } Deploy function Kết nối Lambda với SNS Tìm kiếm từ khóa Simple Notification Service trên thanh tìm kiếm Chọn Topics vừa tạo Trong SNS Topic Create subscription Protocol: AWS Lambda Endpoint: Chọn Lambda function vừa tạo Create subscription Create subscription Cấp quyền cho SNS invoke Lambda\nVào Lambda function Chọn tab Configuration \u0026gt; Permissions Một Resource-based policy sẽ tự động được thêm để cho phép SNS gọi Lambda "
+},
+{
+	"uri": "//localhost:1313/vi/2-prerequiste/2.1-createec2/2.1.1-createvpc/",
+	"title": "Tạo VPC ",
+	"tags": [],
+	"description": "",
+	"content": "Tạo VPC Lab VPC Truy cập giao diện quản trị dịch vụ VPC Click Your VPC. Click Create VPC. Tại trang Create VPC. Tại mục Resources to create chọn : VPC and more. Tại mục Name tag điền Vpc-workShop. Tại mục IPv4 CIDR điền : 10.0.0.0/16. Tại mục VPC endpoints chọn : None. Click Create VPC. Sau khi tạo VPC Tại Subnets. Chọn Vpc-workShop-subnet-public1-ap-southeast-1a\nChọn Action\nChọn Edit subnet settings Trong Edit subnet settings\nCheck vào ô Enable auto-assign public IPv4 address\nChọn Save để lưu lại\n"
+},
+{
+	"uri": "//localhost:1313/vi/2-prerequiste/",
+	"title": "Các bước chuẩn bị",
+	"tags": [],
+	"description": "",
+	"content": "Để triển khai hệ thống theo bài lab, người học cần chuẩn bị các thành phần cơ bản sau:\nNội dung cần chuẩn bị\nTạo VPC riêng và các thành phần mạng cơ bản (Subnet, Route Table, Internet Gateway)\nTạo EC2 instance sử dụng Amazon Linux 2\nTạo và gán Security Group cho phép truy cập SSH (22) và HTTP (80)\nCài đặt Web Server và CloudWatch Agent qua User Data\nTạo IAM Role và gán quyền cho EC2 gửi metric/logs lên CloudWatch\nĐể tìm hiểu cách tạo các EC2 instance và VPC với public/private subnet các bạn có thể tham khảo bài lab :\nGiới thiệu về Amazon EC2 Làm việc với Amazon VPC Nội dung Chuẩn bị VPC và EC2 Instance Thiết lập hệ thống cảnh báo và xử lý sự kiện bằng CloudWatch Alarm, SNS và Lambda "
+},
+{
+	"uri": "//localhost:1313/vi/2-prerequiste/2.1-createec2/2.1.2-createsecuritygroup/",
+	"title": "Tạo Security groups",
+	"tags": [],
+	"description": "",
+	"content": "Tạo Security groups Click Security groups. Click Create security group. Trong Create security group. Security group name đặt tên tùy chỉnh (Ví dụ: WorkShopSecurity) Description đặt mô tả tùy chỉnh (Ví dụ: Security group for Work Shop) VPC chọn VPC vừa tạo \u0026ldquo;Vpc-workShop-vpc\u0026rdquo; Xác định Inbound rules Chọn Add rule\nCấu hình truy cập SSH\nType: Chọn SSH Source: Chọn My IP (tự động sử dụng địa chỉ IPv4 công khai hiện tại của bạn) hoặc Anywhere (0.0.0.0/0) Chọn Add rule tiếp tục\nCấu hình truy cập ICMP:\nType: Chọn All ICMP - IPv4 Source: Chọn Anywhere (0.0.0.0/0) Chọn Add rule tiếp tục\nCấu hình truy cập HTTP:\nType: Chọn HTTP Source: Chọn Anywhere (0.0.0.0/0) Xác định Outound rules Theo mặc định, tất cả lưu lượng truy cập đi đều được phép Chọn Create security group Tạo thành công "
+},
+{
+	"uri": "//localhost:1313/vi/2-prerequiste/2.2-createcloudwatch-alarm/",
+	"title": "Thiết lập hệ thống cảnh báo và xử lý sự kiện bằng CloudWatch Alarm, SNS và Lambda",
+	"tags": [],
+	"description": "",
+	"content": "CloudWatch là gì? Amazon CloudWatch là dịch vụ giám sát tài nguyên AWS và ứng dụng. Cho phép:\nThu thập và hiển thị các chỉ số hệ thống (CPU, bộ nhớ, disk I/O…). Lưu trữ, phân tích logs. Thiết lập cảnh báo khi vượt ngưỡng định trước (Alarm). Kích hoạt hành động tự động qua SNS, Lambda, hoặc các dịch vụ AWS khác. Mục tiêu của phần cấu hình CloudWatch Alarm Theo dõi chỉ số CPUUtilization của EC2 instance. Cảnh báo khi CPU vượt 80% trong vòng 2 phút. Giúp phát hiện sớm các vấn đề về hiệu suất để can thiệp kịp thời. SNS Topic + Email Subscription Tạo kênh thông báo qua SNS Topic. Gửi cảnh báo tức thời qua email khi Alarm kích hoạt. Đảm bảo người quản trị nhận thông tin kịp thời. Lambda Function xử lý cảnh báo Tự động nhận thông báo từ SNS. Tạo OpsItem trong Systems Manager để ghi nhận sự kiện. Gửi cảnh báo chi tiết và dễ hiểu hơn đến người nhận. Giúp tự động hóa quy trình xử lý sự cố theo chuẩn \u0026ldquo;Operational Excellence\u0026rdquo;. Kiến thức nền cần có Thành phần Ý nghĩa Metric Chỉ số hệ thống được CloudWatch thu thập (CPU, Memory, Network…) Alarm Cảnh báo được cấu hình để theo dõi metric và gửi thông báo SNS (Simple Notification Service) Gửi thông báo đến email, SMS, Lambda… Subscription Địa chỉ nhận cảnh báo từ SNS (email, SQS, HTTP endpoint…) Lambda Hàm serverless xử lý sự kiện từ SNS, giúp phản ứng nhanh và linh hoạt SSM OpsItem Mục ghi nhận sự cố trong Systems Manager để theo dõi, phân tích sau này Nội dung Tạo CloudWatch Alarm Tạo Lambda Function xử lý thông báo "
+},
+{
+	"uri": "//localhost:1313/vi/3-testsystem/",
+	"title": "Kiểm tra hệ thống",
+	"tags": [],
+	"description": "",
+	"content": " SSH vào EC2 instance ssh -i your-key.pem ec2-user@your-instance-ip Chạy stress test # Tạo load CPU 100% trong 5 phút sudo stress --cpu 2 --timeout 300s # Hoặc sử dụng yes command yes \u0026gt; /dev/null \u0026amp; yes \u0026gt; /dev/null \u0026amp; CloudWatch Console\nXem CPU metrics tăng lên Alarm chuyển sang \u0026ldquo;In Alarm\u0026rdquo; state Check Email\nNhận email alert gốc từ CloudWatch Nhận email đã được xử lý từ Lambda Clean up test # Stop stress processes sudo pkill stress # Or kill yes processes sudo pkill yes "
+},
+{
+	"uri": "//localhost:1313/vi/2-prerequiste/2.1-createec2/2.1.3-createiamrole/",
+	"title": "Tạo IAM role",
+	"tags": [],
+	"description": "",
+	"content": "Tạo IAM role Truy cập vào AWS Management Console: Tìm kiếm \u0026ldquo;IAM\u0026rdquo; trong thanh tìm kiếm Click vào \u0026ldquo;Roles\u0026rdquo; để mở dashboard Chọn Create Role để tạo role mới Chọn AWS Service\nTrong \u0026ldquo;Use case\u0026rdquo; chọn EC2\nChọn Next để tiếp tục Tìm kiếm \u0026ldquo;CloudWatchAgentServerPolicy\u0026rdquo; và chọn vào quyền CloudWatchAgentServerPolicy\nNext để tiếp tục\nĐặt tên cho role EC2CloudWatchAgentRole Xem lại các thông tin Chọn Create role để tạo role Trở lại \u0026ldquo;Dashboard\u0026rdquo; chọn Roles Tìm kiếm \u0026ldquo;EC2CloudWatchAgentRole\u0026rdquo; (Nếu có thì đã tạo thành công) "
+},
+{
+	"uri": "//localhost:1313/vi/4-advancecloudformation/",
+	"title": "Mở rộng với CloudFormation Template",
+	"tags": [],
+	"description": "",
+	"content": "Phần 2: Mở rộng với CloudFormation Template Sau khi đã hiểu rõ cách cấu hình thủ công các thành phần như EC2, CloudWatch Alarm, SNS và Lambda, phần này sẽ giúp bạn nâng cấp hệ thống lên một mức độ chuyên nghiệp hơn với Infrastructure as Code (IaC).\nThay vì thực hiện thủ công từng bước, ta sử dụng AWS CloudFormation để tự động triển khai toàn bộ hạ tầng với chỉ một cú click hoặc lệnh duy nhất.\nLợi ích mang lại: Tự động hóa toàn bộ quá trình cấu hình và triển khai.\nĐảm bảo tính nhất quán, tránh lỗi do thao tác thủ công.\nDễ dàng kiểm soát và version hóa hạ tầng như code.\nNhanh chóng nhân bản hệ thống sang nhiều môi trường (dev, test, prod\u0026hellip;).\nTemplate được cung cấp sẽ thiết lập đầy đủ:\nHạ tầng mạng và bảo mật.\nEC2 Auto Scaling + Load Balancer.\nHệ thống cảnh báo qua CloudWatch + SNS.\nGhi log, giám sát, xử lý sự kiện tự động bằng Lambda \u0026amp; EventBridge.\nQuản lý vận hành với AWS Systems Manager và OpsCenter.\nNội dung: Chuẩn bị môi trường và triển khai với CloudFormation "
+},
+{
+	"uri": "//localhost:1313/vi/2-prerequiste/2.1-createec2/2.1.4-createec2/",
+	"title": "Tạo EC2 Instance",
+	"tags": [],
+	"description": "",
+	"content": " Truy cập giao diện quản trị dịch vụ EC2 Click Instances. Click Launch instances. Tại trang Step 1: Choose an Amazon Machine Image (AMI). Đặt tên cho EC2 Instance OperationalExcellence-Monitor-Instance Click Select để lựa chọn AMI Amazon Linux 2023 AMI. Tại trang Step 2: Choose an Instance Type. Click chọn Instance type t2.micro. Tại \u0026ldquo;Key pair\u0026rdquo; chọn key pair đã tạo (Nếu chưa có bấm Create new key pair) . Tại \u0026ldquo;Network settings\u0026rdquo; chọn Edit để cấu hình Chọn Select existing security group Trong \u0026ldquo;VPC\u0026rdquo; chọn VPC đã tạo trước đó Vpc-workShop-vpc Tiếp theo cọn subnet đã tạo subnet-public1-ap-southeast-1a Click chọn Security group WorkShopSecurity Trong Advanced details: Click chọn role đã tạo EC2CloudWatchAgentRole cho IAM instance profile Tại User data #!/bin/bash yum update -y yum install -y amazon-cloudwatch-agent stress httpd systemctl start httpd systemctl enable httpd echo \u0026#34;\u0026lt;h1\u0026gt;Operational Excellence Demo Server\u0026lt;/h1\u0026gt;\u0026#34; \u0026gt; /var/www/html/index.html Click Launch instance để tạo Mục đích: Cài web server, cài agent giám sát, tạo trang demo khi truy cập HTTP. Bạn hãy đợi vài phút cho đến khi EC2 được tạo xong trước khi làm bước tiếp theo nhé.\nTạo thành công Chọn vào instance vừa tạo để xem chi tiết Sao chép địa chỉ public ipv4 Click chọn Connect để kiểm tra kết nối Mở terminal Bạn nhớ trỏ đến thư mục hiện tại đang lưu file key-pair.\n#!/bin/bash chmod 400 key-pair.pem Kết nối: #!/bin/bash ssh -i \u0026#34;key-pair.pem\u0026#34; ec2-user@ec2-3-0-102-240.ap-southeast-1.compute.amazonaws.com Nhớ thay \u0026ldquo;key-pair.pem\u0026rdquo; bằng đường dẫn đúng đến file .pem bạn đã tải về khi tạo key pair.\n"
+},
+{
+	"uri": "//localhost:1313/vi/5-cleanup/",
+	"title": "Dọn dẹp tài nguyên  ",
+	"tags": [],
+	"description": "",
+	"content": "Chúng ta sẽ tiến hành các bước sau để xóa các tài nguyên chúng ta đã tạo trong bài thực hành này.\nXóa EC2 instance Truy cập giao diện quản trị dịch vụ EC2 Click Instances. Click chọn OperationalExcellence-Monitor-Instance. Click Instance state. Click Terminate instance, sau đó click Terminate để xác nhận. Nếu bạn đã tạo Key Pair riêng, có thể vào “Key Pairs” (menu trái) và xóa nếu không còn dùng.\nTruy cập giao diện quản trị dịch vụ IAM Click Roles. Tại ô tìm kiếm , điền LambdaOpExRole và EC2CloudWatchAgentRole. Click chọn LambdaOpExRole và EC2CloudWatchAgentRole. Click Delete, sau đó điền tên role LambdaOpExRole và EC2CloudWatchAgentRole và click Delete để xóa role. Xóa VPC Truy cập vào giao diện quản trị dịch vụ VPC Click Your VPCs. Chọn vpc chúng ta đã tạo cho bài thực hành Vpc-workShop. Click Actions. Click Delete VPC. Tại ô confirm, điền delete để xác nhận, click Delete để thực hiện xóa Lab VPC và các tài nguyên liên quan. Xóa Security Group Truy cập vào giao diện quản trị dịch vụ VPC Menu trái chọn Security Groups.\nTìm security group WorkShopSecurity.\nNếu không còn gắn với instance nào → bấm Actions \u0026gt; Delete security group.\nXóa CloudWatch Alarm Truy cập vào giao diện quản trị dịch vụ CloudWatch Vào CloudWatch Console → Menu trái chọn Alarms \u0026gt; All alarms.\nTìm alarm HighCPUUtilization-Alert.\nChọn alarm → Actions \u0026gt; Delete.\nXóa SNS Topic và Subscriptions Truy cập vào giao diện quản trị dịch vụ Simple Notification Service Menu trái chọn Topics, tìm OperationalExcellence-Alerts.\nChọn topic → bấm Delete.\nNếu chưa tự động bị xóa, bạn cũng có thể:\nVào Subscriptions → Chọn các subscription liên quan → Delete.\nXóa Lambda Function Truy cập vào giao diện quản trị dịch vụ Simple Notification Service Tìm function OperationalExcellence-AlertHandler.\nChọn → Bấm Actions \u0026gt; Delete function.\nXóa CLoudFormation Truy cập vào giao diện quản trị dịch vụ Simple Notification Service Chọn Stack CloudFormationWorkShop.\nClick Delete\nXác nhận xóa khi popup hiện ra\nStack sẽ có trạng thái DELETE_IN_PROGRESS và khi hoàn tất sẽ chuyển sang DELETE_COMPLETE\n"
+},
+{
+	"uri": "//localhost:1313/vi/categories/",
+	"title": "Categories",
+	"tags": [],
+	"description": "",
+	"content": ""
+},
+{
+	"uri": "//localhost:1313/vi/tags/",
+	"title": "Tags",
+	"tags": [],
+	"description": "",
+	"content": ""
+}]

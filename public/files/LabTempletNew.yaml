@@ -1,0 +1,687 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template for Auto Scaling with ALB, CloudWatch, SNS, Lambda, SSM, scale out/in notifications, CloudWatch Logs Insights, and OpsCenter
+
+Parameters:
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Name of an existing EC2 key pair to enable SSH access to instances
+    Default: kp-test
+  EmailAddress:
+    Type: String
+    Description: Email address to receive SNS notifications
+    Default: romanticpoet79@gmail.com
+  AmazonLinux2AMI:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Description: Amazon Linux 2 AMI ID from SSM Parameter Store
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Basic Configuration"
+        Parameters:
+          - KeyName
+          - EmailAddress
+          - AmazonLinux2AMI
+    ParameterLabels:
+      KeyName:
+        default: "EC2 Key Pair Name"
+      EmailAddress:
+        default: "Email for Notifications"
+      AmazonLinux2AMI:
+        default: "Amazon Linux 2 AMI"
+
+Resources:
+  # VPC
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: AutoScalingVPC
+
+  # Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: AutoScalingIGW
+
+  # Attach Internet Gateway to VPC
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Subnets
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet2
+
+  # Route Table
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: PublicRouteTable
+
+  # Route to Internet Gateway
+  RouteToInternet:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  # Associate Route Table with Subnets
+  SubnetRouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref RouteTable
+
+  SubnetRouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref RouteTable
+
+  # Security Group
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH and HTTP
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: ASGSecurityGroup
+
+  # IAM Role for EC2
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: CloudWatchLogsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  # Instance Profile for EC2
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2InstanceRole
+
+  # Launch Template for ASG
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: ASGLaunchTemplate
+      LaunchTemplateData:
+        ImageId: !Ref AmazonLinux2AMI
+        InstanceType: t3.medium
+        KeyName: !Ref KeyName
+        SecurityGroupIds:
+          - !Ref InstanceSecurityGroup
+        IamInstanceProfile:
+          Name: !Ref EC2InstanceProfile
+        UserData:
+          Fn::Base64: |
+            #!/bin/bash
+            yum update -y
+            amazon-linux-extras install epel -y
+            yum install -y stress httpd amazon-cloudwatch-agent
+            systemctl start httpd
+            systemctl enable httpd
+            echo "<h1>Welcome to Auto Scaling Group</h1>" > /var/www/html/index.html
+            # Configure CloudWatch Logs Agent
+            cat <<EOF > /etc/amazon/amazon-cloudwatch-agent/amazon-cloudwatch-agent.json
+            {
+              "agent": {
+                "metrics_collection_interval": 60,
+                "logfile": "/var/log/amazon-cloudwatch-agent.log"
+              },
+              "logs": {
+                "logs_collected": {
+                  "files": {
+                    "collect_list": [
+                      {
+                        "file_path": "/var/log/messages",
+                        "log_group_name": "ASGSystemLogs",
+                        "log_stream_name": "{instance_id}/messages"
+                      },
+                      {
+                        "file_path": "/var/log/httpd/access_log",
+                        "log_group_name": "ASGHttpdLogs",
+                        "log_stream_name": "{instance_id}/access_log"
+                      },
+                      {
+                        "file_path": "/var/log/httpd/error_log",
+                        "log_group_name": "ASGHttpdLogs",
+                        "log_stream_name": "{instance_id}/error_log"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+            EOF
+            /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/etc/amazon/amazon-cloudwatch-agent/amazon-cloudwatch-agent.json
+            systemctl start amazon-cloudwatch-agent
+            systemctl enable amazon-cloudwatch-agent
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: ASGInstance
+
+  # Application Load Balancer
+  ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !Ref InstanceSecurityGroup
+      Tags:
+        - Key: Name
+          Value: AutoScalingALB
+
+  # ALB Listener
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  # Target Group
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref VPC
+      TargetType: instance
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      Tags:
+        - Key: Name
+          Value: ASGTargetGroup
+
+  # Auto Scaling Group
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+      MinSize: '2'
+      MaxSize: '10'
+      DesiredCapacity: '2'
+      TargetGroupARNs:
+        - !Ref TargetGroup
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: 300
+      Tags:
+        - Key: Name
+          Value: ASGInstance
+          PropagateAtLaunch: true
+
+  # CloudWatch Alarm for Scale Out
+  ScaleOutAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Scale out if CPU > 80% for 2 minutes
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref AutoScalingGroup
+      AlarmActions:
+        - !Ref ScaleOutPolicy
+        - !Ref SNSTopic
+      OKActions:
+        - !Ref SNSTopic
+
+  # Scale Out Policy
+  ScaleOutPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      PolicyType: SimpleScaling
+      ScalingAdjustment: 2
+      AdjustmentType: ChangeInCapacity
+      Cooldown: 300
+
+  # CloudWatch Alarm for Scale In
+  ScaleInAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Scale in if CPU < 30% for 2 minutes
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 30
+      ComparisonOperator: LessThanThreshold
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref AutoScalingGroup
+      AlarmActions:
+        - !Ref ScaleInPolicy
+        - !Ref SNSTopic
+      OKActions:
+        - !Ref SNSTopic
+
+  # Scale In Policy
+  ScaleInPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      PolicyType: SimpleScaling
+      ScalingAdjustment: -1
+      AdjustmentType: ChangeInCapacity
+      Cooldown: 300
+
+  # SNS Topic
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: CPUHighAlarm
+
+  # SNS Subscription
+  SNSSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !Ref EmailAddress
+      Protocol: email
+      TopicArn: !Ref SNSTopic
+
+  # Lambda Execution Role
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaSNSPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: sns:Publish
+                Resource: !Ref SNSTopic
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action: ssm:CreateOpsItem
+                Resource: '*'
+
+  # Lambda Function
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: CPUAlertHandler
+      Handler: index.lambda_handler
+      Runtime: python3.12
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          from datetime import datetime
+
+          def lambda_handler(event, context):
+              print(f"Received event: {json.dumps(event)}")
+              sns = boto3.client('sns')
+              ssm = boto3.client('ssm')
+              topic_arn = event['Records'][0]['Sns']['TopicArn']
+              try:
+                  message = event['Records'][0]['Sns']['Message']
+                  subject = event['Records'][0]['Sns'].get('Subject', 'EC2 Event')
+
+                  # Initialize variables
+                  title = subject
+                  description = message
+                  instance_id = 'Unknown'
+                  asg_name = 'Unknown'
+                  source = 'aws.cloudwatch'
+                  category = 'Performance'
+                  severity = '2'
+                  timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+
+                  # Check if message is from CloudWatch Alarm
+                  try:
+                      alarm_data = json.loads(message)
+                      alarm_name = alarm_data.get('AlarmName', 'Unknown')
+                      instance_id = alarm_data.get('Trigger', {}).get('Dimensions', [{}])[0].get('value', 'Unknown')
+                      alarm_description = alarm_data.get('AlarmDescription', 'No description')
+                      title = f"{alarm_name} Alert"
+                      description = alarm_description
+                      source = 'aws.cloudwatch'
+                  except json.JSONDecodeError:
+                      # Handle EventBridge messages (scale in/out)
+                      if 'detail-type' in message:
+                          try:
+                              event_data = json.loads(message)
+                              if event_data.get('detail-type') == 'EC2 Instance Launch Successful':
+                                  instance_id = event_data.get('detail', {}).get('EC2InstanceId', 'Unknown')
+                                  asg_name = event_data.get('detail', {}).get('AutoScalingGroupName', 'Unknown')
+                                  title = 'EC2 Instance Launch Successful'
+                                  description = f"A new EC2 instance was launched in Auto Scaling Group {asg_name}"
+                                  source = 'aws.autoscaling'
+                                  severity = '3'
+                              elif event_data.get('detail-type') == 'EC2 Instance Terminate Successful':
+                                  instance_id = event_data.get('detail', {}).get('EC2InstanceId', 'Unknown')
+                                  asg_name = event_data.get('detail', {}).get('AutoScalingGroupName', 'Unknown')
+                                  title = 'EC2 Instance Terminate Successful'
+                                  description = f"An EC2 instance was terminated in Auto Scaling Group {asg_name}"
+                                  source = 'aws.autoscaling'
+                                  severity = '3'
+                          except json.JSONDecodeError:
+                              pass
+
+                  # Create OpsItem
+                  opsitem_response = ssm.create_ops_item(
+                      Title=title,
+                      Description=f"{description}\nInstance ID: {instance_id}",
+                      Source=source,
+                      Category=category,
+                      Severity=severity,
+                      OperationalData={
+                          '/aws/resources': {
+                              'Value': json.dumps([{'arn': f'arn:aws:ec2:{context.invoked_function_arn.split(":")[3]}:{context.invoked_function_arn.split(":")[4]}:instance/{instance_id}'}]),
+                              'Type': 'SearchableString'
+                          },
+                          '/aws/autoscalinggroup': {
+                              'Value': asg_name,
+                              'Type': 'SearchableString'
+                          }
+                      },
+                      Notifications=[{'Arn': topic_arn}]
+                  )
+                  print(f"Created OpsItem: {opsitem_response['OpsItemId']}")
+
+                  # Format SNS notification
+                  sns_message = (
+                      "==============================\n"
+                      "Auto Scaling Event Notification\n"
+                      "==============================\n\n"
+                      f"Event: {title}\n"
+                      f"Instance ID: {instance_id}\n"
+                      f"Auto Scaling Group: {asg_name}\n"
+                      f"Description: {description}\n"
+                      f"OpsItem ID: {opsitem_response['OpsItemId']}\n"
+                      f"Timestamp: {timestamp}\n\n"
+                      "==============================\n"
+                      "For more details, check AWS OpsCenter or CloudWatch.\n"
+                      "=============================="
+                  )
+                  sns.publish(TopicArn=topic_arn, Message=sns_message, Subject=title)
+                  print("Notification sent successfully")
+                  return {'statusCode': 200, 'body': json.dumps('Notification and OpsItem created!')}
+              except Exception as e:
+                  print(f"Error processing event: {str(e)}")
+                  return {'statusCode': 500, 'body': json.dumps(f'Error: {str(e)}')}
+      Environment:
+        Variables:
+          SNSTopicArn: !Ref SNSTopic
+      Timeout: 30
+
+  # SNS Permission for Lambda
+  LambdaSNSPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LambdaFunction
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn: !Ref SNSTopic
+
+  # Connect Lambda to SNS
+  LambdaSNSSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: lambda
+      TopicArn: !Ref SNSTopic
+      Endpoint: !GetAtt LambdaFunction.Arn
+
+  # CloudWatch Alarm for Notification
+  CPUHighAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Notify if CPU > 80% for 2 minutes
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref AutoScalingGroup
+      AlarmActions:
+        - !Ref SNSTopic
+      OKActions:
+        - !Ref SNSTopic
+
+  # SSM Document for Automation
+  SSMDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      DocumentType: Command
+      Content:
+        schemaVersion: '2.2'
+        description: Restart EC2 instance to resolve software issues
+        parameters:
+          InstanceId:
+            type: String
+            description: ID of the EC2 instance to restart
+        mainSteps:
+          - action: aws:runShellScript
+            name: restartInstance
+            inputs:
+              runCommand:
+                - "sudo reboot"
+
+  # CloudWatch Event Rule for Scale Out
+  AutoScalingLaunchEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Detect scale out events of Auto Scaling Group
+      EventPattern:
+        source:
+          - aws.autoscaling
+        detail-type:
+          - EC2 Instance Launch Successful
+        detail:
+          AutoScalingGroupName:
+            - !Ref AutoScalingGroup
+      Targets:
+        - Arn: !Ref SNSTopic
+          Id: SNSTopicTargetLaunch
+        - Arn: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:opsitem'
+          Id: OpsCenterTargetLaunch
+          RoleArn: !GetAtt OpsCenterEventBridgePermission.Arn
+          InputTransformer:
+            InputPathsMap:
+              instanceId: '$.detail.EC2InstanceId'
+              asgName: '$.detail.AutoScalingGroupName'
+            InputTemplate: |
+              {
+                "title": "EC2 Instance Launch Successful",
+                "description": "A new EC2 instance was launched in Auto Scaling Group",
+                "source": "aws.autoscaling",
+                "category": "Performance",
+                "severity": 3,
+                "operationalData": {
+                  "/aws/resources": {
+                    "value": [{"arn": "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/<instanceId>"}],
+                    "type": "SearchableString"
+                  },
+                  "/aws/autoscalinggroup": {
+                    "value": "<asgName>",
+                    "type": "SearchableString"
+                  }
+                }
+              }
+
+  # CloudWatch Event Rule for Scale In
+  AutoScalingTerminateEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Detect scale in events of Auto Scaling Group
+      EventPattern:
+        source:
+          - aws.autoscaling
+        detail-type:
+          - EC2 Instance Terminate Successful
+        detail:
+          AutoScalingGroupName:
+            - !Ref AutoScalingGroup
+      Targets:
+        - Arn: !Ref SNSTopic
+          Id: SNSTopicTargetTerminate
+        - Arn: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:opsitem'
+          Id: OpsCenterTargetTerminate
+          RoleArn: !GetAtt OpsCenterEventBridgePermission.Arn
+          InputTransformer:
+            InputPathsMap:
+              instanceId: '$.detail.EC2InstanceId'
+              asgName: '$.detail.AutoScalingGroupName'
+            InputTemplate: |
+              {
+                "title": "EC2 Instance Terminate Successful",
+                "description": "An EC2 instance was terminated in Auto Scaling Group",
+                "source": "aws.autoscaling",
+                "category": "Performance",
+                "severity": 3,
+                "operationalData": {
+                  "/aws/resources": {
+                    "value": [{"arn": "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/<instanceId>"}],
+                    "type": "SearchableString"
+                  },
+                  "/aws/autoscalinggroup": {
+                    "value": "<asgName>",
+                    "type": "SearchableString"
+                  }
+                }
+              }
+
+  # Permission for CloudWatch Events to publish to SNS
+  SNSPublishPermission:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref SNSTopic
+      Topics:
+        - !Ref SNSTopic
+
+  # Permission for CloudWatch Events to create OpsItems
+  OpsCenterEventBridgePermission:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CreateOpsItemPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ssm:CreateOpsItem
+                Resource: '*'
+
+Outputs:
+  ALBEndpoint:
+    Description: URL of the Application Load Balancer
+    Value: !GetAtt ALB.DNSName
